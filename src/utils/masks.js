@@ -5260,7 +5260,9 @@ function _bakeInwardFadeCanvas(binaryCanvas, fadePx) {
   for (let p = 0, i = 0; p < mask.length; p++, i += 4) {
     if (!mask[p]) continue;
     const edgeDist = Math.max(0, Math.sqrt(distSq[p]) - 0.5);
-    const alpha = Math.max(0, Math.min(1, edgeDist / fade));
+    const ramp = Math.max(0, Math.min(1, edgeDist / fade));
+    // Smoothstep: no change of slope where the fade meets full opacity, so no visible ring there.
+    const alpha = ramp * ramp * (3 - 2 * ramp);
     const v = Math.round(alpha * 255);
     out.data[i + 0] = v;
     out.data[i + 1] = v;

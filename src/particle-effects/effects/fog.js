@@ -24,6 +24,13 @@ export class FogParticleEffect extends DefaultRectangleSpawnMixin(FXMasterPartic
 
   static MIN_VIEW_CELLS = 6000;
 
+  /**
+   * Region size, in grid cells, at which a region's fog matches the old view-based count. Regions keep one density per
+   * cell whatever their size: the view-based count (at least MIN_VIEW_CELLS worth of particles) spread over the region
+   * made a region's fog thinner the larger it was, and a one-square region very dense and slow.
+   */
+  static REGION_REFERENCE_CELLS = 64;
+
   /** @override */
   static get parameters() {
     const params = foundry.utils.mergeObject({}, super.parameters, { inplace: false });
@@ -126,7 +133,7 @@ export class FogParticleEffect extends DefaultRectangleSpawnMixin(FXMasterPartic
   getParticleEmitters(options = {}) {
     options = this.constructor.mergeWithDefaults(options);
 
-    const { maxParticles } = this.constructor.computeMaxParticlesFromView(options, {
+    const { maxParticles, density } = this.constructor.computeMaxParticlesFromView(options, {
       minViewCells: this.constructor.MIN_VIEW_CELLS ?? 3000,
     });
 
@@ -145,7 +152,13 @@ export class FogParticleEffect extends DefaultRectangleSpawnMixin(FXMasterPartic
     const spawnArea = Math.max(1, spawnW * spawnH);
     const areaRatio = spawnArea / sceneArea;
 
-    config.maxParticles = Math.max(maxParticles, Math.round(maxParticles * areaRatio));
+    if (CONFIG.fxmaster.isScopedParticleSource?.(options)) {
+      const grid = Math.max(1, Number(d?.size) || 100);
+      const perCell = (density * (this.constructor.MIN_VIEW_CELLS ?? 3000)) / this.constructor.REGION_REFERENCE_CELLS;
+      config.maxParticles = Math.max(1, Math.round((perCell * spawnArea) / (grid * grid)));
+    } else {
+      config.maxParticles = Math.max(maxParticles, Math.round(maxParticles * areaRatio));
+    }
 
     const lifetime = config.lifetime ?? 1;
     const lifetimeMin = typeof lifetime === "number" ? lifetime : lifetime.min ?? 1;
